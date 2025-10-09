@@ -1,0 +1,43 @@
+# Environment variables (contains sensitive API keys)
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Logs (can be large and noisy)
+*.log
+logs/
+log/
+
+# AWS credentials
+.aws/
+
+# Trading data (sensitive financial information)
+*.db
+*.sqlite
+*.sqlite3
+trades/
+positions/
+backups/
+
+# Test outputs
+test_results/
+coverage/
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
