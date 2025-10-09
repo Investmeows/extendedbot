@@ -52,6 +52,9 @@ class TradingBot:
                 )
             )
             
+            logger.info(f"TARGET_SIZE from config: {Config.TARGET_SIZE}")
+            logger.info(f"BTC_LEVERAGE from config: {Config.BTC_LEVERAGE}")
+            logger.info(f"ETH_LEVERAGE from config: {Config.ETH_LEVERAGE}")
             logger.info(f"Set BTC leverage to {Config.BTC_LEVERAGE}x")
             logger.info(f"Set ETH leverage to {Config.ETH_LEVERAGE}x")
             
@@ -114,20 +117,29 @@ class TradingBot:
             btc_ask = float(btc_orderbook["data"]["ask"][0]["price"])
             eth_bid = float(eth_orderbook["data"]["bid"][0]["price"])
             
-            # Place BTC long order
+            # Calculate quantities for delta neutral positions
+            btc_quantity = Config.TARGET_SIZE / btc_ask
+            eth_quantity = Config.TARGET_SIZE / eth_bid
+            
+            logger.info(f"TARGET_SIZE from config: {Config.TARGET_SIZE}")
+            logger.info(f"Delta neutral position sizing:")
+            logger.info(f"  BTC: {btc_quantity:.6f} BTC = ${Config.TARGET_SIZE:.2f}")
+            logger.info(f"  ETH: {eth_quantity:.6f} ETH = ${Config.TARGET_SIZE:.2f}")
+            
+            # Place BTC long order at market price
             btc_success = self._place_order_with_retry(
                 market_name=self.btc_symbol,
-                amount=Decimal(str(Config.BTC_QUANTITY)),
-                price=Decimal(str(int(btc_ask * 1.01))),
+                amount=Decimal(str(btc_quantity)),
+                price=Decimal(str(btc_ask)),  # Use current ask price for immediate execution
                 side=OrderSide.BUY,
                 order_type="BTC long"
             )
             
-            # Place ETH short order
+            # Place ETH short order at market price
             eth_success = self._place_order_with_retry(
                 market_name=self.eth_symbol,
-                amount=Decimal(str(Config.ETH_QUANTITY)),
-                price=Decimal(str(int(eth_bid * 0.99))),
+                amount=Decimal(str(eth_quantity)),
+                price=Decimal(str(eth_bid)),  # Use current bid price for immediate execution
                 side=OrderSide.SELL,
                 order_type="ETH short"
             )
@@ -170,17 +182,17 @@ class TradingBot:
             eth_bid = float(eth_orderbook["data"]["bid"][0]["price"])
             eth_ask = float(eth_orderbook["data"]["ask"][0]["price"])
             
-            # Close BTC position if open
+            # Close BTC position if open at market price
             if "BTC-USD" in positions and positions["BTC-USD"]["size"] > 0:
                 self._place_order_with_retry(
                     market_name=self.btc_symbol,
                     amount=Decimal(str(abs(positions["BTC-USD"]["size"]))),
-                    price=Decimal(str(int(btc_bid * 0.99))),
+                    price=Decimal(str(btc_bid)),  # Use current bid price for immediate execution
                     side=OrderSide.SELL,
                     order_type="BTC close"
                 )
             
-            # Close ETH position if open
+            # Close ETH position if open at market price
             if "ETH-USD" in positions and positions["ETH-USD"]["size"] != 0:
                 eth_size = positions["ETH-USD"]["size"]
                 eth_side = positions["ETH-USD"]["side"]
@@ -188,7 +200,7 @@ class TradingBot:
                     self._place_order_with_retry(
                         market_name=self.eth_symbol,
                         amount=Decimal(str(abs(eth_size))),
-                        price=Decimal(str(int(eth_bid * 0.99))),
+                        price=Decimal(str(eth_bid)),  # Use current bid price for immediate execution
                         side=OrderSide.SELL,
                         order_type="ETH close"
                     )
@@ -196,7 +208,7 @@ class TradingBot:
                     self._place_order_with_retry(
                         market_name=self.eth_symbol,
                         amount=Decimal(str(abs(eth_size))),
-                        price=Decimal(str(int(eth_ask * 1.01))),
+                        price=Decimal(str(eth_ask)),  # Use current ask price for immediate execution
                         side=OrderSide.BUY,
                         order_type="ETH close"
                     )

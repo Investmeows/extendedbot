@@ -21,11 +21,10 @@ class Config:
     AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
     AWS_LOG_GROUP = os.getenv('AWS_LOG_GROUP', 'extended-bot-logs')
     
-    # Trading Configuration
-    BTC_QUANTITY = float(os.getenv('BTC_QUANTITY', '0.0001'))  # Minimum order size
-    ETH_QUANTITY = float(os.getenv('ETH_QUANTITY', '0.001'))   # Minimum order size
-    BTC_LEVERAGE = int(os.getenv('BTC_LEVERAGE', '10'))
-    ETH_LEVERAGE = int(os.getenv('ETH_LEVERAGE', '10'))
+    # Trading Configuration - Delta Neutral Strategy
+    TARGET_SIZE = float(os.getenv('TARGET_SIZE'))
+    BTC_LEVERAGE = int(os.getenv('BTC_LEVERAGE'))
+    ETH_LEVERAGE = int(os.getenv('ETH_LEVERAGE'))
     TIMEZONE = pytz.timezone(os.getenv('TIMEZONE', 'Asia/Bangkok'))
     
     # Safety Configuration
@@ -33,9 +32,8 @@ class Config:
     MAX_RETRY_ATTEMPTS = int(os.getenv('MAX_RETRY_ATTEMPTS', '3'))
     
     # Trading Schedule
-    # Test times: 5 minutes from now for entry, 10 minutes from now for exit
-    OPEN_TIME = "02:00"  # Will be updated dynamically for test
-    CLOSE_TIME = "07:00"  # Will be updated dynamically for test
+    OPEN_TIME = os.getenv('OPEN_TIME')
+    CLOSE_TIME = os.getenv('CLOSE_TIME')
     
     # Order Configuration
     PRICE_BUFFER = 0.0075  # 0.75% buffer for market-like orders
