@@ -46,9 +46,9 @@ class ExtendedSDKClient:
             
             # Create Stark account with both private and public keys
             stark_account = StarkPerpetualAccount(
-                vault=Config.VAULT_NUMBER,
-                private_key=Config.STARK_KEY,
-                public_key=Config.STARK_PUBLIC_KEY,
+                vault=Config.L2_VAULT,
+                private_key=Config.L2_KEY,
+                public_key=Config.L2_PUBLIC_KEY,
                 api_key=Config.API_KEY
             )
             
@@ -111,7 +111,8 @@ class ExtendedSDKClient:
     def get_orderbook(self, symbol: str) -> Dict:
         """Get orderbook for a symbol."""
         try:
-            return self.client.info.get_orderbook(symbol)
+            # Use markets_info instead of info for orderbook
+            return self.client.markets_info.get_markets(symbol)
         except Exception as e:
             logger.error(f"Failed to get orderbook: {e}")
             raise
@@ -127,7 +128,7 @@ class ExtendedSDKClient:
     def cancel_all_orders(self) -> Dict:
         """Cancel all open orders (dead man's switch)."""
         try:
-            return self.client.orders.cancel_all()
+            return self.client.orders.mass_cancel()
         except Exception as e:
             logger.error(f"Failed to cancel all orders: {e}")
             raise
@@ -179,7 +180,7 @@ class ExtendedSDKClient:
                 "reduceOnly": reduce_only,
                 "fee": str(taker_fee),
                 "expiryEpochMillis": expiry_time,
-                "clientId": Config.CLIENT_ID
+                "clientId": "extended-bot"
             }
             
             return order_data

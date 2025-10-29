@@ -4,7 +4,7 @@ Main entry point for the Extended Exchange trading bot.
 import sys
 import signal
 import time
-from trading_bot import TradingBot
+from trading_bot_clean import TradingBot
 from logger import setup_logging
 from config import Config
 import logging
@@ -31,10 +31,13 @@ def main():
         # Create and start the trading bot
         bot = TradingBot()
         logger.info("Starting Extended Exchange trading bot...")
-        logger.info(f"Strategy: Long BTC-USD / Short ETH-USD")
+        logger.info(f"Strategy: Long {Config.LONG_PAIR} / Short {Config.SHORT_PAIR}")
         logger.info(f"Timezone: {Config.TIMEZONE}")
-        logger.info(f"Open time: {Config.OPEN_TIME}")
-        logger.info(f"Close time: {Config.CLOSE_TIME}")
+        logger.info(f"OPEN_TIME: {Config.OPEN_TIME}")
+        logger.info(f"CLOSE_TIME: {Config.CLOSE_TIME}")
+        logger.info(f"TARGET_SIZE: ${Config.TARGET_SIZE}")
+        logger.info(f"LONG_LEVERAGE: {Config.LONG_LEVERAGE}x")
+        logger.info(f"SHORT_LEVERAGE: {Config.SHORT_LEVERAGE}x")
         
         bot.start()
         

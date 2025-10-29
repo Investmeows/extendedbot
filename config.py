@@ -10,22 +10,35 @@ load_dotenv()
 
 class Config:
     # Extended Exchange API Configuration
-    API_KEY = os.getenv('EXTENDED_API_KEY')
-    STARK_KEY = os.getenv('EXTENDED_STARK_KEY')
-    STARK_PUBLIC_KEY = os.getenv('EXTENDED_STARK_PUBLIC_KEY')
-    VAULT_NUMBER = os.getenv('EXTENDED_VAULT_NUMBER')
-    CLIENT_ID = os.getenv('EXTENDED_CLIENT_ID')
-    BASE_URL = os.getenv('EXTENDED_BASE_URL', 'https://api.extended.exchange/api/v1')
+    API_KEY = os.getenv('EXT_API_KEY')
+    L2_KEY = os.getenv('EXT_L2_KEY')
+    L2_VAULT = os.getenv('EXT_L2_VAULT')
+    L2_PUBLIC_KEY = os.getenv('EXT_L2_PUBLIC_KEY')
+    USER_AGENT = os.getenv('EXT_USER_AGENT', 'extended-bot/0.1')
+    BASE_URL = os.getenv('EXT_BASE_URL', 'https://api.starknet.extended.exchange/api/v1')
     
-    # AWS Configuration
-    AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
-    AWS_LOG_GROUP = os.getenv('AWS_LOG_GROUP', 'extended-bot-logs')
+    # DigitalOcean Configuration
+    DO_REGION = os.getenv('DO_REGION', 'nyc1')
+    DO_DROPLET_SIZE = os.getenv('DO_DROPLET_SIZE', 's-1vcpu-1gb')
+    
+    # Logging Configuration
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    LOG_FILE = os.getenv('LOG_FILE', '/app/logs/trading-bot.log')
     
     # Trading Configuration - Delta Neutral Strategy
     TARGET_SIZE = float(os.getenv('TARGET_SIZE'))
-    BTC_LEVERAGE = int(os.getenv('BTC_LEVERAGE'))
-    ETH_LEVERAGE = int(os.getenv('ETH_LEVERAGE'))
-    TIMEZONE = pytz.timezone(os.getenv('TIMEZONE', 'Asia/Bangkok'))
+    
+    # Trading Pairs Configuration
+    LONG_PAIR = os.getenv('LONG_PAIR', 'BTC-USD')
+    SHORT_PAIR = os.getenv('SHORT_PAIR', 'ETH-USD')
+    LONG_LEVERAGE = int(os.getenv('LONG_LEVERAGE', '10'))
+    SHORT_LEVERAGE = int(os.getenv('SHORT_LEVERAGE', '10'))
+    
+    # Backward compatibility
+    BTC_LEVERAGE = LONG_LEVERAGE
+    ETH_LEVERAGE = SHORT_LEVERAGE
+    
+    TIMEZONE = pytz.timezone(os.getenv('TIMEZONE', 'UTC'))
     
     # Safety Configuration
     DEAD_MAN_SWITCH_ENABLED = os.getenv('DEAD_MAN_SWITCH_ENABLED', 'true').lower() == 'true'
@@ -42,7 +55,7 @@ class Config:
     @classmethod
     def validate_config(cls):
         """Validate that all required configuration is present."""
-        required_vars = ['API_KEY', 'STARK_KEY', 'STARK_PUBLIC_KEY', 'VAULT_NUMBER', 'CLIENT_ID']
+        required_vars = ['API_KEY', 'L2_KEY', 'L2_VAULT', 'L2_PUBLIC_KEY']
         missing = [var for var in required_vars if not getattr(cls, var)]
         
         if missing:

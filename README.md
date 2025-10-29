@@ -6,12 +6,12 @@ Automated delta-neutral trading bot for Extended Exchange that executes daily BT
 
 **Strategy**: Daily BTC long + ETH short positions with market orders  
 **Schedule**: Configurable open/close times via `.env`  
-**Deployment**: AWS EC2 with CloudWatch logging  
+**Deployment**: DigitalOcean Droplet with Docker (UTC timezone)  
 **Safety**: Dead man's switch, kill switch, retry logic  
 
 ## Quick Start
 
-### 1. Setup
+### 1. Local Development
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -19,9 +19,24 @@ pip install -r requirements.txt
 # Configure environment
 cp .env.template .env
 # Edit .env with your API credentials
+
+# Run locally
+python main.py
 ```
 
-### 2. Environment Variables
+### 2. Docker Development
+```bash
+# Build and run with Docker
+docker-compose up --build
+
+# Run in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+### 3. Environment Variables
 ```bash
 # Required API credentials
 EXTENDED_API_KEY=your_api_key
@@ -36,58 +51,81 @@ BTC_LEVERAGE=10
 ETH_LEVERAGE=10
 OPEN_TIME=00:00:00
 CLOSE_TIME=23:59:30
-TIMEZONE=Asia/Bangkok
+TIMEZONE=UTC
+
+# DigitalOcean configuration
+DO_REGION=nyc1
+DO_DROPLET_SIZE=s-1vcpu-1gb
 ```
 
-### 3. Run Bot
-```bash
-# Direct execution
-python main.py
+## DigitalOcean Deployment
 
-# Scheduled execution
-python scheduler.py
+### 1. Create Droplet
+- **Image**: Ubuntu 22.04 LTS
+- **Size**: s-1vcpu-1gb (minimum) or s-1vcpu-2gb (recommended)
+- **Region**: Choose closest to your location
+- **Authentication**: SSH key (recommended)
+
+### 2. Initial Setup
+```bash
+# Connect to your droplet
+ssh root@your-droplet-ip
+
+# Download and run setup script
+curl -O https://raw.githubusercontent.com/your-repo/extendedbot/main/do_setup.sh
+chmod +x do_setup.sh
+./do_setup.sh
+
+# Log out and back in for Docker permissions
+exit
+ssh root@your-droplet-ip
 ```
 
-## AWS Deployment
-
-### 1. EC2 Setup
+### 3. Deploy Bot
 ```bash
-# Launch Ubuntu EC2 instance
-# Run setup script
-curl -O https://raw.githubusercontent.com/your-repo/extendedbot/main/aws_setup.sh
-chmod +x aws_setup.sh
-./aws_setup.sh
+# Clone your repository
+git clone https://github.com/your-username/extendedbot.git
+cd extendedbot
+
+# Configure environment
+cp .env.template .env
+nano .env  # Edit with your API credentials
+
+# Deploy
+./do_deploy.sh
 ```
 
-### 2. Configure
+### 4. Management Commands
 ```bash
-# Copy .env to server
-scp .env user@your-ec2-ip:/opt/extended-bot/
+# Start bot
+./start_bot.sh
 
-# Configure AWS
-aws configure
-```
+# Stop bot
+./stop_bot.sh
 
-### 3. Start Service
-```bash
-# Test first
-python main.py
-
-# Enable service
-sudo systemctl enable extended-bot.service
-sudo systemctl start extended-bot.service
-```
-
-### 4. Monitor
-```bash
 # Check status
-sudo systemctl status extended-bot.service
+./status.sh
 
 # View logs
-journalctl -u extended-bot.service -f
+docker-compose logs -f
 
-# Use monitoring script
-./monitor.sh
+# Update bot
+./update_bot.sh
+
+# Create backup
+./backup.sh
+```
+
+### 5. Monitoring
+```bash
+# View logs
+docker-compose logs -f
+
+# Check container status
+docker-compose ps
+
+# View system resources
+docker stats
 ```
 
 ## Trading Logic

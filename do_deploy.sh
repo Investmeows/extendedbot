@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# DigitalOcean deployment script for Extended Exchange trading bot
+# This script helps deploy the bot to a DigitalOcean Droplet
+
+set -e
+
+echo "Extended Exchange Trading Bot - DigitalOcean Deployment"
+echo "======================================================"
+
+# Check if we're on a DigitalOcean Droplet
+if [ -f /etc/digitalocean ]; then
+    echo "✓ Running on DigitalOcean Droplet"
+else
+    echo "⚠️  Not running on DigitalOcean - some features may not work"
+fi
+
+# Check Docker installation
+if command -v docker &> /dev/null; then
+    echo "✓ Docker is installed"
+    docker --version
+else
+    echo "❌ Docker is not installed. Please run ./do_setup.sh first"
+    exit 1
+fi
+
+# Check Docker Compose installation
+if command -v docker-compose &> /dev/null; then
+    echo "✓ Docker Compose is installed"
+    docker-compose --version
+else
+    echo "❌ Docker Compose is not installed. Please run ./do_setup.sh first"
+    exit 1
+fi
+
+# Check if .env file exists
+if [ ! -f .env ]; then
+    echo "Creating .env file from template..."
+    cp .env.template .env
+    echo "⚠️  Please edit .env file with your API credentials before running the bot"
+    echo "   You can edit it with: nano .env"
+    exit 1
+fi
+
+# Validate .env file
+echo "Validating configuration..."
+if ! grep -q "EXTENDED_API_KEY=your_api_key_here" .env; then
+    echo "✓ .env file appears to be configured"
+else
+    echo "❌ .env file still contains template values. Please configure your API credentials."
+    exit 1
+fi
+
+# Create necessary directories
+echo "Creating directories..."
+mkdir -p logs
+mkdir -p monitoring
+
+# Build Docker image
+echo "Building Docker image..."
+docker-compose build --no-cache
+
+# Test the bot configuration
+echo "Testing bot configuration..."
+docker-compose run --rm extended-bot python -c "
+from config import Config
+try:
+    Config.validate_config()
+    print('✓ Configuration validation passed')
+except Exception as e:
+    print(f'❌ Configuration validation failed: {e}')
+    exit(1)
+"
+
+if [ $? -eq 0 ]; then
+    echo "✓ Bot configuration test passed"
+else
+    echo "❌ Bot configuration test failed - please check your .env file"
+    exit 1
+fi
+
+# Start the bot
+echo "Starting the trading bot..."
+docker-compose up -d
+
+# Wait for bot to start
+echo "Waiting for bot to start..."
+sleep 10
+
+# Check if bot is running
+if docker-compose ps | grep -q "Up"; then
+    echo "✅ Bot started successfully!"
+    echo ""
+    echo "Management commands:"
+    echo "  View logs:    docker-compose logs -f"
+    echo "  Stop bot:     docker-compose down"
+    echo "  Restart bot:  docker-compose restart"
+    echo "  Bot status:   docker-compose ps"
+    echo ""
+    echo "System commands:"
+    echo "  Start:        ./start_bot.sh"
+    echo "  Stop:         ./stop_bot.sh"
+    echo "  Status:       ./status.sh"
+    echo "  Update:       ./update_bot.sh"
+    echo "  Backup:       ./backup.sh"
+    echo ""
+    echo "Monitoring:"
+    echo "  View logs:    docker-compose logs -f extended-bot"
+    echo "  System stats: docker stats"
+    echo "  Bot health:   docker-compose ps"
+else
+    echo "❌ Bot failed to start. Check logs with: docker-compose logs"
+    exit 1
+fi
+
+# Enable auto-start service
+echo "Enabling auto-start service..."
+sudo systemctl enable extended-bot.service
+
+echo ""
+echo "🎉 Deployment complete!"
+echo ""
+echo "The bot is now running and will automatically start on system boot."
+echo "Monitor the bot with: ./status.sh"
