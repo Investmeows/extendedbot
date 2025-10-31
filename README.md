@@ -46,7 +46,7 @@ EXTENDED_VAULT_NUMBER=your_vault_number
 EXTENDED_CLIENT_ID=your_client_id
 
 # Trading configuration
-TARGET_SIZE=5.0   #USD terms
+TARGET_SIZE=200.0   #USD terms
 BTC_LEVERAGE=10
 ETH_LEVERAGE=10
 OPEN_TIME=00:00:00
@@ -61,10 +61,10 @@ DO_DROPLET_SIZE=s-1vcpu-1gb
 ## DigitalOcean Deployment
 
 ### 1. Create Droplet
-- **Image**: Ubuntu 22.04 LTS
-- **Size**: s-1vcpu-1gb (minimum) or s-1vcpu-2gb (recommended)
-- **Region**: Choose closest to your location
-- **Authentication**: SSH key (recommended)
+- **Image**: Ubuntu 24.04 LTS
+- **Size**: 1bg 25
+- **Region**: Sydney
+- **Authentication**: SSH key
 
 ### 2. Initial Setup
 ```bash
@@ -131,8 +131,9 @@ docker stats
 ## Trading Logic
 
 **Daily Cycle:**
-- **00:00:00**: Open Long BTC + Short ETH (market orders)
-- **23:59:30**: Close all positions (market orders)
+- **21:30:30**: Open Long BTC + Short ETH (market orders)
+- **18:30:30**: Close all positions (market orders)
+(close during the most volatility ridden times of 2-4am UTC+7)
 - **Every minute**: Check time and positions
 - **Every hour**: Status logging
 

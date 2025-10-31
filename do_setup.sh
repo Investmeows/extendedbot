@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DigitalOcean Droplet setup script for Extended Exchange trading bot
-# Run this script on a fresh Ubuntu 22.04 LTS Droplet
+# Run this script on a fresh Ubuntu 24.04 LTS Droplet (or 22.04 LTS)
 
 set -e
 
@@ -83,21 +83,34 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# Determine compose command (prefer v2)
+COMPOSE_CMD="docker compose"
+if ! docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+fi
+
 # Start the bot
 echo "Starting Extended Exchange trading bot..."
-docker-compose up -d
+$COMPOSE_CMD up -d
 
 echo "✅ Bot started successfully!"
-echo "View logs: docker-compose logs -f"
-echo "Stop bot: docker-compose down"
+echo "View logs: $COMPOSE_CMD logs -f"
+echo "Stop bot: $COMPOSE_CMD down"
 EOF
 
 # Stop script
 cat > stop_bot.sh <<'EOF'
 #!/bin/bash
 cd /opt/extended-bot
+
+# Determine compose command (prefer v2)
+COMPOSE_CMD="docker compose"
+if ! docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+fi
+
 echo "Stopping Extended Exchange trading bot..."
-docker-compose down
+$COMPOSE_CMD down
 echo "✅ Bot stopped successfully!"
 EOF
 
@@ -106,17 +119,23 @@ cat > status.sh <<'EOF'
 #!/bin/bash
 cd /opt/extended-bot
 
+# Determine compose command (prefer v2)
+COMPOSE_CMD="docker compose"
+if ! docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+fi
+
 echo "=== Extended Bot Status ==="
 echo "Current time: $(date)"
 echo "Timezone: $(timedatectl show --property=Timezone --value)"
 echo ""
 
 echo "Docker containers:"
-docker-compose ps
+$COMPOSE_CMD ps
 echo ""
 
 echo "Recent logs:"
-docker-compose logs --tail=20
+$COMPOSE_CMD logs --tail=20
 echo ""
 
 echo "System resources:"
@@ -128,6 +147,12 @@ cat > update_bot.sh <<'EOF'
 #!/bin/bash
 cd /opt/extended-bot
 
+# Determine compose command (prefer v2)
+COMPOSE_CMD="docker compose"
+if ! docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+fi
+
 echo "Updating Extended Exchange trading bot..."
 
 # Pull latest changes (if using git)
@@ -136,9 +161,9 @@ if [ -d .git ]; then
 fi
 
 # Rebuild and restart
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+$COMPOSE_CMD down
+$COMPOSE_CMD build --no-cache
+$COMPOSE_CMD up -d
 
 echo "✅ Bot updated successfully!"
 EOF

@@ -24,13 +24,22 @@ else
     exit 1
 fi
 
-# Check Docker Compose installation
-if command -v docker-compose &> /dev/null; then
-    echo "✓ Docker Compose is installed"
+# Check Docker Compose installation (try v2 first, then v1)
+if docker compose version &> /dev/null; then
+    echo "✓ Docker Compose (v2) is installed"
+    docker compose version
+elif command -v docker-compose &> /dev/null; then
+    echo "✓ Docker Compose (v1) is installed"
     docker-compose --version
+    COMPOSE_CMD="docker-compose"
 else
     echo "❌ Docker Compose is not installed. Please run ./do_setup.sh first"
     exit 1
+fi
+
+# Set compose command (use docker compose v2 if available)
+if [ -z "$COMPOSE_CMD" ]; then
+    COMPOSE_CMD="docker compose"
 fi
 
 # Check if .env file exists
@@ -58,11 +67,11 @@ mkdir -p monitoring
 
 # Build Docker image
 echo "Building Docker image..."
-docker-compose build --no-cache
+$COMPOSE_CMD build --no-cache
 
 # Test the bot configuration
 echo "Testing bot configuration..."
-docker-compose run --rm extended-bot python -c "
+$COMPOSE_CMD run --rm extended-bot python -c "
 from config import Config
 try:
     Config.validate_config()
@@ -81,21 +90,21 @@ fi
 
 # Start the bot
 echo "Starting the trading bot..."
-docker-compose up -d
+$COMPOSE_CMD up -d
 
 # Wait for bot to start
 echo "Waiting for bot to start..."
 sleep 10
 
 # Check if bot is running
-if docker-compose ps | grep -q "Up"; then
+if $COMPOSE_CMD ps | grep -q "Up"; then
     echo "✅ Bot started successfully!"
     echo ""
     echo "Management commands:"
-    echo "  View logs:    docker-compose logs -f"
-    echo "  Stop bot:     docker-compose down"
-    echo "  Restart bot:  docker-compose restart"
-    echo "  Bot status:   docker-compose ps"
+    echo "  View logs:    $COMPOSE_CMD logs -f"
+    echo "  Stop bot:     $COMPOSE_CMD down"
+    echo "  Restart bot:  $COMPOSE_CMD restart"
+    echo "  Bot status:   $COMPOSE_CMD ps"
     echo ""
     echo "System commands:"
     echo "  Start:        ./start_bot.sh"
@@ -105,11 +114,11 @@ if docker-compose ps | grep -q "Up"; then
     echo "  Backup:       ./backup.sh"
     echo ""
     echo "Monitoring:"
-    echo "  View logs:    docker-compose logs -f extended-bot"
+    echo "  View logs:    $COMPOSE_CMD logs -f extended-bot"
     echo "  System stats: docker stats"
-    echo "  Bot health:   docker-compose ps"
+    echo "  Bot health:   $COMPOSE_CMD ps"
 else
-    echo "❌ Bot failed to start. Check logs with: docker-compose logs"
+    echo "❌ Bot failed to start. Check logs with: $COMPOSE_CMD logs"
     exit 1
 fi
 

@@ -13,12 +13,12 @@ class Config:
     API_KEY = os.getenv('EXT_API_KEY')
     L2_KEY = os.getenv('EXT_L2_KEY')
     L2_VAULT = os.getenv('EXT_L2_VAULT')
-    L2_PUBLIC_KEY = os.getenv('EXT_L2_PUBLIC_KEY')
+    L2_PUBLIC_KEY = os.getenv('EXT_L2_PUBLIC_KEY') or os.getenv('L2_PUBLIC_KEY')
     USER_AGENT = os.getenv('EXT_USER_AGENT', 'extended-bot/0.1')
     BASE_URL = os.getenv('EXT_BASE_URL', 'https://api.starknet.extended.exchange/api/v1')
     
-    # DigitalOcean Configuration
-    DO_REGION = os.getenv('DO_REGION', 'nyc1')
+    # DigitalOcean Configuration (metadata only, doesn't affect bot functionality)
+    DO_REGION = os.getenv('DO_REGION', 'syd1')
     DO_DROPLET_SIZE = os.getenv('DO_DROPLET_SIZE', 's-1vcpu-1gb')
     
     # Logging Configuration
