@@ -28,6 +28,8 @@ class TradingBot:
         
         # Bot state
         self.bot_state = "WAITING"  # WAITING, OPENING, OPEN, CLOSING
+        self.last_state_log = None
+        self.last_hourly_log = None
     
     def initialize(self):
         """Initialize the bot."""
@@ -52,6 +54,10 @@ class TradingBot:
             
             # Initialize state
             self._initialize_state()
+            
+            # Initialize logging state
+            self.last_state_log = self.bot_state
+            self.last_hourly_log = datetime.now(Config.TIMEZONE)
             
             logger.info("Bot initialization complete")
             
@@ -98,9 +104,22 @@ class TradingBot:
     def _process_trading_cycle(self):
         """Process one trading cycle."""
         current_date = datetime.now(Config.TIMEZONE).date()
+        current_time = datetime.now(Config.TIMEZONE)
         
-        # Log current state
-        logger.info(f"State: {self.bot_state}, Date: {current_date}")
+        # Log state changes or hourly status
+        should_log = False
+        if self.bot_state != self.last_state_log:
+            # Log state changes immediately
+            should_log = True
+            self.last_state_log = self.bot_state
+        elif (self.last_hourly_log is None or 
+              (current_time - self.last_hourly_log).total_seconds() >= 3600):
+            # Log hourly status
+            should_log = True
+            self.last_hourly_log = current_time
+        
+        if should_log:
+            logger.info(f"State: {self.bot_state}, Date: {current_date}")
         
         if self.bot_state == "WAITING":
             if self.scheduler.should_open_positions():
@@ -125,8 +144,9 @@ class TradingBot:
             success = self.order_manager.open_delta_neutral_positions(Config.TARGET_SIZE)
             
             if success:
-                # Wait and verify
-                time.sleep(5)
+                # Wait longer for positions to settle on the exchange
+                logger.info("Waiting for positions to settle...")
+                time.sleep(30)
                 self._verify_opening()
             else:
                 logger.error("Failed to open positions")
@@ -140,13 +160,33 @@ class TradingBot:
         """Verify positions were opened successfully."""
         positions = self.position_manager.get_current_positions()
         
+        # Log positions for debugging
+        if positions:
+            logger.info(f"Checking positions: {positions}")
+            for market, pos_data in positions.items():
+                logger.info(f"  {market}: size={pos_data['size']}, side={pos_data['side']}")
+        else:
+            logger.warning("No positions found after opening orders")
+        
+        # Single validation check (all logic in is_delta_neutral)
         if self.position_manager.is_delta_neutral(positions):
             self.bot_state = "OPEN"
             self.scheduler.mark_trading_day(datetime.now(Config.TIMEZONE).date())
             logger.info("✅ Delta neutral positions verified")
         else:
-            logger.error("❌ Failed to achieve delta neutral positions")
-            self.bot_state = "WAITING"
+            logger.error(f"❌ Failed to achieve delta neutral positions: {positions}")
+            # Retry once after additional wait
+            logger.info("Retrying position verification in 5 seconds...")
+            time.sleep(5)
+            positions = self.position_manager.get_current_positions()
+            
+            if self.position_manager.is_delta_neutral(positions):
+                self.bot_state = "OPEN"
+                self.scheduler.mark_trading_day(datetime.now(Config.TIMEZONE).date())
+                logger.info("✅ Delta neutral positions verified on retry")
+            else:
+                logger.error(f"❌ Still no delta neutral positions after retry: {positions}")
+                self.bot_state = "WAITING"
     
     def _close_positions(self):
         """Close all positions."""
@@ -158,8 +198,9 @@ class TradingBot:
             success = self.order_manager.close_all_positions(positions)
             
             if success:
-                # Wait and verify
-                time.sleep(5)
+                # Wait longer for positions to close on the exchange
+                logger.info("Waiting for positions to close...")
+                time.sleep(30)
                 self._verify_closing()
             else:
                 logger.error("Failed to close positions")
@@ -173,13 +214,27 @@ class TradingBot:
         """Verify positions were closed successfully."""
         positions = self.position_manager.get_current_positions()
         
+        # Log actual positions for debugging
+        if positions:
+            logger.info(f"Remaining positions: {positions}")
+        
         if not self.position_manager.has_positions(positions):
             self.bot_state = "WAITING"
             self.scheduler.reset_trading_day()
             logger.info("✅ All positions closed successfully")
         else:
             logger.error(f"❌ Failed to close all positions: {positions}")
-            self.bot_state = "OPEN"
+            # Retry verification once more after additional wait
+            logger.info("Retrying position verification in 5 seconds...")
+            time.sleep(5)
+            positions = self.position_manager.get_current_positions()
+            if not self.position_manager.has_positions(positions):
+                self.bot_state = "WAITING"
+                self.scheduler.reset_trading_day()
+                logger.info("✅ All positions closed successfully on retry")
+            else:
+                logger.error(f"❌ Still have positions after retry: {positions}")
+                self.bot_state = "OPEN"
     
     def stop(self):
         """Stop the trading bot."""
