@@ -29,8 +29,10 @@ class Scheduler:
             return False
         
         # Check if current time is within 1 minute of open time
-        time_diff = abs((datetime.combine(current_date, current_time) - 
-                        datetime.combine(current_date, self.open_time)).total_seconds())
+        # Make timezone-aware datetimes
+        current_datetime = Config.TIMEZONE.localize(datetime.combine(current_date, current_time))
+        open_datetime = Config.TIMEZONE.localize(datetime.combine(current_date, self.open_time))
+        time_diff = abs((current_datetime - open_datetime).total_seconds())
         
         return time_diff <= 60
     
@@ -58,7 +60,8 @@ class Scheduler:
             # If we're on the expected close date, check if time has passed
             if current_date == expected_close_date:
                 # Check if current time is at or past close time (with 1 minute window before)
-                close_datetime = datetime.combine(current_date, self.close_time)
+                # Make timezone-aware datetime
+                close_datetime = Config.TIMEZONE.localize(datetime.combine(current_date, self.close_time))
                 time_diff = (current_datetime - close_datetime).total_seconds()
                 # Close if we're within 1 minute before or any time after
                 return time_diff >= -60
@@ -77,7 +80,8 @@ class Scheduler:
                 return False
             
             # On the same day - check if we're at or past close time
-            close_datetime = datetime.combine(current_date, self.close_time)
+            # Make timezone-aware datetime
+            close_datetime = Config.TIMEZONE.localize(datetime.combine(current_date, self.close_time))
             time_diff = (current_datetime - close_datetime).total_seconds()
             # Close if we're within 1 minute before or any time after
             return time_diff >= -60
@@ -99,8 +103,8 @@ class Scheduler:
         current_time = current_datetime.time()
         current_date = current_datetime.date()
         
-        # Check open time
-        open_datetime = datetime.combine(current_date, self.open_time)
+        # Check open time - make timezone-aware
+        open_datetime = Config.TIMEZONE.localize(datetime.combine(current_date, self.open_time))
         open_diff = abs((current_datetime - open_datetime).total_seconds())
         
         # Check close time (only if we have positions)
@@ -109,10 +113,10 @@ class Scheduler:
             if self.close_time < self.open_time:
                 # Close time is next day
                 expected_close_date = self.last_trading_day + timedelta(days=1)
-                close_datetime = datetime.combine(expected_close_date, self.close_time)
+                close_datetime = Config.TIMEZONE.localize(datetime.combine(expected_close_date, self.close_time))
             else:
                 # Close time is same day
-                close_datetime = datetime.combine(self.last_trading_day, self.close_time)
+                close_datetime = Config.TIMEZONE.localize(datetime.combine(self.last_trading_day, self.close_time))
             
             close_diff = abs((current_datetime - close_datetime).total_seconds())
             return open_diff <= 300 or close_diff <= 300
