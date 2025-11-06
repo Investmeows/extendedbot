@@ -4,7 +4,7 @@ Clean, modular trading bot for delta neutral BTC/ETH strategy.
 import time
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from extended_sdk_client import ExtendedSDKClient
 from order_manager_sdk import OrderManager
 from position_manager_fixed import PositionManager
@@ -72,8 +72,22 @@ class TradingBot:
         
         if self.position_manager.is_delta_neutral(positions):
             self.bot_state = "OPEN"
-            self.scheduler.mark_trading_day(current_date)
+            # Mark trading day, but use a conservative approach for stale positions
+            # If close_time < open_time, conservatively assume positions were opened yesterday
+            # This ensures should_close_positions() will trigger if we're past close time
+            # Parse times to compare properly
+            close_time = datetime.strptime(Config.CLOSE_TIME, "%H:%M:%S").time()
+            open_time = datetime.strptime(Config.OPEN_TIME, "%H:%M:%S").time()
+            if close_time < open_time:
+                # Cross-day scenario: assume positions were opened yesterday (or earlier)
+                # This way, if today is past close time, we'll close immediately
+                # Use yesterday to ensure we're past expected close date calculation
+                self.scheduler.mark_trading_day(current_date - timedelta(days=1))
+            else:
+                # Same-day scenario: assume positions were opened today
+                self.scheduler.mark_trading_day(current_date)
             logger.info("Delta neutral positions found - state: OPEN")
+            logger.info(f"Marked trading day as: {self.scheduler.last_trading_day} (conservative for stale positions)")
         else:
             self.bot_state = "WAITING"
             logger.info("No delta neutral positions - state: WAITING")
