@@ -2,188 +2,92 @@
 
 Automated delta-neutral trading bot for Extended Exchange that executes daily BTC long / ETH short positions.
 
-## 🚀 Production Ready
-
-**Strategy**: Daily BTC long + ETH short positions with market orders  
-**Schedule**: Configurable open/close times via `.env`  
-**Deployment**: DigitalOcean Droplet with Docker (UTC timezone)  
-**Safety**: Dead man's switch, kill switch, retry logic  
+## If you need help can DM Toshi (if you found this repo you know how to DM him..)
 
 ## Quick Start
 
-### 1. Local Development
-```bash
-# Install dependencies
-pip install -r requirements.txt
+### 1. Get API Credentials
 
-# Configure environment
-cp .env.template .env
-# Edit .env with your API credentials
+1. Go to [https://app.extended.exchange/api-management](https://app.extended.exchange/api-management)
+2. Create a new API Key
+3. Copy your API Key, Starknet Private Key, Starknet Public Key, and Vault ID
 
-# Run locally
-python main.py
-```
+### 2. Create DigitalOcean Droplet
 
-### 2. Docker Development
-```bash
-# Build and run with Docker
-docker-compose up --build
+1. Go to [https://cloud.digitalocean.com/droplets](https://cloud.digitalocean.com/droplets)
+2. Click **"Create Droplet"**
+3. Configure:
+   - **Image**: Ubuntu 24.04
+   - **Droplet type**: Regular
+   - **Plan**: $6/month
+   - **Authentication**: SSH key
+   - **Name**: lowercase, no spaces (e.g., `extended-bot`)
+4. Note your droplet's **IPv4 address**
 
-# Run in background
-docker-compose up -d
+### 3. Connect and Deploy
 
-# View logs
-docker-compose logs -f
-```
+**Note**: Replace `your-username` in the URLs below with your actual GitHub username.
 
-### 3. Environment Variables
-```bash
-# Required API credentials
-EXTENDED_API_KEY=your_api_key
-EXTENDED_STARK_KEY=your_stark_key
-EXTENDED_STARK_PUBLIC_KEY=your_stark_public_key
-EXTENDED_VAULT_NUMBER=your_vault_number
-EXTENDED_CLIENT_ID=your_client_id
-
-# Trading configuration
-TARGET_SIZE=200.0   #USD terms
-BTC_LEVERAGE=10
-ETH_LEVERAGE=10
-OPEN_TIME=00:00:00
-CLOSE_TIME=23:59:30
-TIMEZONE=UTC
-
-# DigitalOcean configuration
-DO_REGION=nyc1
-DO_DROPLET_SIZE=s-1vcpu-1gb
-```
-
-## DigitalOcean Deployment
-
-### 1. Create Droplet
-- **Image**: Ubuntu 24.04 LTS
-- **Size**: 1bg 25
-- **Region**: Sydney
-- **Authentication**: SSH key
-
-### 2. Initial Setup
 ```bash
 # Connect to your droplet
-ssh root@your-droplet-ip
+ssh root@[droplet_ipv4_address]
 
 # Download and run setup script
-curl -O https://raw.githubusercontent.com/your-repo/extendedbot/main/do_setup.sh
+curl -O https://raw.githubusercontent.com/your-username/extendedbot/main/do_setup.sh
 chmod +x do_setup.sh
 ./do_setup.sh
 
-# Log out and back in for Docker permissions
+# Log out and reconnect
 exit
-ssh root@your-droplet-ip
-```
+ssh root@[droplet_ipv4_address]
 
-### 3. Deploy Bot
-```bash
-# Clone your repository
+# Clone repository
 git clone https://github.com/your-username/extendedbot.git
 cd extendedbot
 
 # Configure environment
-cp .env.template .env
-nano .env  # Edit with your API credentials
+# Copy the example file to create your .env file
+cp .env.example .env
+# Edit .env and add your API credentials from step 1
+# You need to fill in: EXT_API_KEY, L2_PUBLIC_KEY, EXT_L2_KEY, and EXT_L2_VAULT
+sudo nano .env
+
+# Tip: If you're not familiar with editing in nano, ask AI (ChatGPT, Claude, etc.) 
+# "I am editing a .env file in nano and need to add my API credentials. How do I navigate, edit text, save, and exit in nano?"
+
 
 # Deploy
 ./do_deploy.sh
 ```
 
-### 4. Management Commands
-```bash
-# Start bot
-./start_bot.sh
+**Important**: In `.env`, use format `KEY=value` (no spaces, no quotes, no parentheses)
 
-# Stop bot
+### 4. Verify
+
+```bash
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f
+```
+
+## Management Commands
+
+```bash
+# Start/Stop
+./start_bot.sh
 ./stop_bot.sh
 
-# Check status
+# Status
 ./status.sh
 
-# View logs
-docker-compose logs -f
-
-# Update bot
-./update_bot.sh
-
-# Create backup
-./backup.sh
+# Update
+cd extendedbot
+git pull origin main
+docker compose build --no-cache
+docker compose down && docker compose up -d
 ```
-
-### 5. Monitoring
-```bash
-# View logs
-docker-compose logs -f
-
-# Check container status
-docker-compose ps
-
-# View system resources
-docker stats
-```
-
-## Trading Logic
-
-**Daily Cycle:**
-- **21:30:30**: Open Long BTC + Short ETH (market orders)
-- **18:30:30**: Close all positions (market orders)
-(close during the most volatility ridden times of 2-4am UTC+7)
-- **Every minute**: Check time and positions
-- **Every hour**: Status logging
-
-**Position Sizing:**
-- Delta-neutral: Equal USD value for both positions
-- Leverage: 10x on both assets
-- Size: Configurable via `TARGET_SIZE`
-
-## Safety Features
-
-- **Dead Man's Switch**: Cancels all orders on startup
-- **Kill Switch**: Emergency close all positions
-- **Retry Logic**: 3 attempts for failed orders
-- **Duplicate Prevention**: Checks existing positions
-- **Position Verification**: 5-second wait + verification
-
-## Files
-
-```
-extendedbot/
-├── main.py              # Entry point
-├── trading_bot.py       # Core trading logic
-├── extended_sdk_client.py # Official SDK client
-├── scheduler.py         # Daily scheduler
-├── config.py           # Configuration
-├── logger.py           # Logging setup
-├── aws_setup.sh        # AWS deployment
-├── deploy.sh           # Deployment script
-└── requirements.txt    # Dependencies
-```
-
-## Troubleshooting
-
-**Common Issues:**
-- Authentication: Verify API credentials
-- Orders: Check margin and position limits
-- Service: Check systemd status and logs
-
-**Logs:**
-```bash
-# Service logs
-journalctl -u extended-bot.service -f
-
-# CloudWatch logs
-aws logs tail /aws/lambda/extended-bot-logs --follow
-```
-
-## License
-
-MIT License - see LICENSE file for details.
 
 ## Disclaimer
 
