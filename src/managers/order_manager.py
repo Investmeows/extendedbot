@@ -5,7 +5,7 @@ import time
 import math
 import logging
 from typing import Dict, Tuple
-from config import Config
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ Fixed position management module using correct Extended Exchange API.
 import logging
 import httpx
 from typing import Dict
-from config import Config
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 

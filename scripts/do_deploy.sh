@@ -72,7 +72,7 @@ $COMPOSE_CMD build --no-cache
 # Test the bot configuration
 echo "Testing bot configuration..."
 $COMPOSE_CMD run --rm extended-bot python -c "
-from config import Config
+from src.config import Config
 try:
     Config.validate_config()
     print('✓ Configuration validation passed')

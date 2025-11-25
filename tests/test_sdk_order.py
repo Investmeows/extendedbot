@@ -4,7 +4,7 @@ Test SDK order placement
 import asyncio
 import logging
 from decimal import Decimal
-from extended_sdk_client import ExtendedSDKClient
+from src.clients.extended_sdk_client import ExtendedSDKClient
 from x10.perpetual.orders import OrderSide, TimeInForce
 
 logging.basicConfig(level=logging.INFO)
