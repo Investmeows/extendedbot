@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 import os
 from datetime import datetime
-from config import Config
+from src.config import Config
 
 class FileRotationHandler(logging.handlers.RotatingFileHandler):
     """Custom file handler with rotation for Docker environments."""

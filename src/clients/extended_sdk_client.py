@@ -4,7 +4,7 @@ Extended Exchange SDK client using the official Python SDK.
 import time
 import logging
 from typing import Dict, List, Optional, Any
-from config import Config
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 

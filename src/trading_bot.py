@@ -5,11 +5,11 @@ import time
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from extended_sdk_client import ExtendedSDKClient
-from order_manager_sdk import OrderManager
-from position_manager_fixed import PositionManager
-from scheduler import Scheduler
-from config import Config
+from src.clients.extended_sdk_client import ExtendedSDKClient
+from src.managers.order_manager import OrderManager
+from src.managers.position_manager import PositionManager
+from src.utils.scheduler import Scheduler
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 

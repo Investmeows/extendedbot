@@ -3,7 +3,7 @@ Scheduling module for determining when to open/close positions.
 """
 import logging
 from datetime import datetime, timedelta, time as dt_time
-from config import Config
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 

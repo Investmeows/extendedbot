@@ -4,9 +4,9 @@ Main entry point for the Extended Exchange trading bot.
 import sys
 import signal
 import time
-from trading_bot_clean import TradingBot
-from logger import setup_logging
-from config import Config
+from src.trading_bot import TradingBot
+from src.logger import setup_logging
+from src.config import Config
 import logging
 
 # Set up logging
