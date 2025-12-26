@@ -2,6 +2,13 @@
 
 # DigitalOcean Droplet setup script for Extended Exchange trading bot
 # Run this script on a fresh Ubuntu 24.04 LTS Droplet (or 22.04 LTS)
+#
+# This script sets up the system (Docker, tools, directories) and creates
+# management scripts in /opt/extended-bot. After running this script, you should:
+# 1. Clone the repository into /opt/extended-bot (or update the paths in the
+#    management scripts if cloning elsewhere)
+# 2. Create your .env file manually with your API credentials
+# 3. Run do_deploy.sh from the cloned repository location
 
 set -e
 
@@ -38,34 +45,6 @@ cd /opt/extended-bot
 echo "Setting timezone to UTC..."
 sudo timedatectl set-timezone UTC
 
-# Create environment file template
-echo "Creating environment file template..."
-cat > .env.template <<EOF
-# Extended Exchange API Configuration
-EXTENDED_API_KEY=your_api_key_here
-EXTENDED_STARK_KEY=your_stark_key_here
-EXTENDED_STARK_PUBLIC_KEY=your_stark_public_key_here
-EXTENDED_VAULT_NUMBER=your_vault_number_here
-EXTENDED_CLIENT_ID=your_client_id_here
-EXTENDED_BASE_URL=https://api.starknet.extended.exchange/api/v1
-
-# Trading Configuration
-TARGET_SIZE=5.0
-BTC_LEVERAGE=10
-ETH_LEVERAGE=10
-OPEN_TIME=00:00:00
-CLOSE_TIME=23:59:30
-TIMEZONE=UTC
-
-# Safety Configuration
-DEAD_MAN_SWITCH_ENABLED=true
-MAX_RETRY_ATTEMPTS=3
-
-# DigitalOcean Configuration
-DO_REGION=nyc1
-DO_DROPLET_SIZE=s-1vcpu-1gb
-EOF
-
 # Create logs directory
 mkdir -p logs
 
@@ -79,7 +58,7 @@ cd /opt/extended-bot
 
 # Check if .env exists
 if [ ! -f .env ]; then
-    echo "❌ .env file not found! Please copy .env.template to .env and configure it."
+    echo "❌ .env file not found! Please create .env file with your API credentials."
     exit 1
 fi
 
@@ -237,12 +216,11 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Copy your .env file: cp .env.template .env"
-echo "2. Edit .env with your API credentials: nano .env"
-echo "3. Test the bot: ./start_bot.sh"
-echo "4. Check status: ./status.sh"
-echo "5. Enable auto-start: sudo systemctl enable extended-bot.service"
-echo "6. View logs: docker-compose logs -f"
+echo "1. Create your .env file with your API credentials: nano .env"
+echo "2. Test the bot: ./start_bot.sh"
+echo "3. Check status: ./status.sh"
+echo "4. Enable auto-start: sudo systemctl enable extended-bot.service"
+echo "5. View logs: docker-compose logs -f"
 echo ""
 echo "Management commands:"
 echo "  Start:  ./start_bot.sh"

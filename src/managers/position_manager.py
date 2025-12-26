@@ -3,7 +3,7 @@ Fixed position management module using correct Extended Exchange API.
 """
 import logging
 import httpx
-from typing import Dict
+from typing import Dict, Tuple, List
 from src.config import Config
 
 logger = logging.getLogger(__name__)
@@ -49,51 +49,62 @@ class PositionManager:
             logger.error(f"Failed to get positions: {e}")
             return {}
     
-    def is_delta_neutral(self, positions: Dict) -> bool:
+    def get_position_notional_value(self, position_data: Dict) -> float:
+        """Calculate notional value of a position."""
+        return abs(position_data["size"]) * position_data["mark_price"]
+    
+    def validate_position_sizes(self, positions: Dict, expected_pairs: List[Dict]) -> Tuple[bool, Dict]:
         """
-        Check if positions are delta neutral (long pair + short pair).
+        Validate that each position size is within ~1% of target.
         
-        Validates:
-        1. Exactly two positions (LONG_PAIR and SHORT_PAIR only)
-        2. LONG_PAIR has side "LONG" with meaningful size
-        3. SHORT_PAIR has side "SHORT" with meaningful size
+        Args:
+            positions: Current positions from API {market: {size, side, mark_price, ...}}
+            expected_pairs: List of {pair: str, target_size: float}
+        
+        Returns:
+            (is_valid: bool, details: Dict with validation results per pair)
         """
-        if not positions:
-            return False
+        # Edge case: empty expected_pairs means nothing to validate, which is invalid
+        if not expected_pairs:
+            return False, {}
         
-        long_pair = Config.LONG_PAIR
-        short_pair = Config.SHORT_PAIR
-        expected_markets = {long_pair, short_pair}
-        actual_markets = set(positions.keys())
+        TOLERANCE = 0.01  # 1%
+        results = {}
         
-        # Must have exactly the two expected positions (no more, no less)
-        if actual_markets != expected_markets:
-            logger.debug(f"Market mismatch: expected {expected_markets}, got {actual_markets}")
-            return False
+        for pair_config in expected_pairs:
+            pair = pair_config['pair']
+            target_size = pair_config['target_size']
+            position = positions.get(pair)
+            
+            if not position:
+                results[pair] = {'valid': False, 'reason': 'Position not found'}
+                continue
+            
+            # Calculate notional values
+            mark_price = position['mark_price']
+            actual_notional = self.get_position_notional_value(position)
+            target_notional = target_size
+            
+            # Check tolerance
+            if target_notional > 0:
+                diff_pct = abs(actual_notional - target_notional) / target_notional
+                is_valid = diff_pct <= TOLERANCE
+            else:
+                # Target size is 0 or invalid
+                is_valid = False
+                diff_pct = float('inf')
+            
+            results[pair] = {
+                'valid': is_valid,
+                'actual_notional': actual_notional,
+                'target_notional': target_notional,
+                'diff_pct': diff_pct,
+                'mark_price': mark_price,
+                'position_size': position['size']
+            }
         
-        # Validate long position
-        long_pos = positions.get(long_pair)
-        has_long = (
-            long_pos is not None and
-            long_pos["side"].upper() == "LONG" and
-            abs(long_pos["size"]) > 0.00001
-        )
-        
-        # Validate short position
-        short_pos = positions.get(short_pair)
-        has_short = (
-            short_pos is not None and
-            short_pos["side"].upper() == "SHORT" and
-            abs(short_pos["size"]) > 0.00001
-        )
-        
-        is_valid = has_long and has_short
-        
-        if not is_valid:
-            logger.debug(f"Delta neutral validation failed: long={has_long}, short={has_short}")
-            logger.debug(f"Positions: {positions}")
-        
-        return is_valid
+        all_valid = all(r['valid'] for r in results.values())
+        return all_valid, results
     
     def has_positions(self, positions: Dict) -> bool:
         """Check if there are any open positions."""

@@ -44,16 +44,15 @@ fi
 
 # Check if .env file exists
 if [ ! -f .env ]; then
-    echo "Creating .env file from template..."
-    cp .env.template .env
-    echo "⚠️  Please edit .env file with your API credentials before running the bot"
-    echo "   You can edit it with: nano .env"
+    echo "❌ .env file not found!"
+    echo "   Please create .env file with your API credentials before running the bot"
+    echo "   You can create it with: nano .env"
     exit 1
 fi
 
 # Validate .env file
 echo "Validating configuration..."
-if ! grep -q "EXTENDED_API_KEY=your_api_key_here" .env; then
+if ! grep -q "EXT_API_KEY=your_api_key_here" .env; then
     echo "✓ .env file appears to be configured"
 else
     echo "❌ .env file still contains template values. Please configure your API credentials."
@@ -106,13 +105,6 @@ if $COMPOSE_CMD ps | grep -q "Up"; then
     echo "  Restart bot:  $COMPOSE_CMD restart"
     echo "  Bot status:   $COMPOSE_CMD ps"
     echo ""
-    echo "System commands:"
-    echo "  Start:        ./start_bot.sh"
-    echo "  Stop:         ./stop_bot.sh"
-    echo "  Status:       ./status.sh"
-    echo "  Update:       ./update_bot.sh"
-    echo "  Backup:       ./backup.sh"
-    echo ""
     echo "Monitoring:"
     echo "  View logs:    $COMPOSE_CMD logs -f extended-bot"
     echo "  System stats: docker stats"
@@ -122,12 +114,16 @@ else
     exit 1
 fi
 
-# Enable auto-start service
-echo "Enabling auto-start service..."
-sudo systemctl enable extended-bot.service
+# Enable auto-start service (if it exists)
+if [ -f /etc/systemd/system/extended-bot.service ]; then
+    echo "Enabling auto-start service..."
+    sudo systemctl enable extended-bot.service
+    echo "The bot will automatically start on system boot."
+else
+    echo "⚠️  Systemd service not found. Auto-start not configured."
+fi
 
 echo ""
 echo "🎉 Deployment complete!"
 echo ""
-echo "The bot is now running and will automatically start on system boot."
-echo "Monitor the bot with: ./status.sh"
+echo "Monitor the bot with: $COMPOSE_CMD logs -f"
