@@ -4,7 +4,7 @@ Order management using Extended Exchange SDK for proper signature handling.
 import time
 import math
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from src.config import Config
 
 logger = logging.getLogger(__name__)
@@ -14,8 +14,6 @@ class OrderManager:
     
     def __init__(self, sdk_client):
         self.client = sdk_client
-        self.long_pair = Config.LONG_PAIR
-        self.short_pair = Config.SHORT_PAIR
         self.price_buffer = Config.PRICE_BUFFER
     
     def quantize(self, value: float, step: float) -> str:
@@ -39,30 +37,54 @@ class OrderManager:
         return f"{q:.{decimal_places}f}"
     
     def get_market_prices(self) -> Tuple[float, float]:
-        """Get current long pair ask and short pair bid prices."""
+        """Get current first long pair ask and first short pair bid prices (backward compatibility).
+        
+        Note: This method is deprecated. Use get_market_prices_for_pairs() instead.
+        """
+        long_pairs = Config.get_all_long_pairs()
+        short_pairs = Config.get_all_short_pairs()
+        
+        if not long_pairs or not short_pairs:
+            raise ValueError(
+                "Cannot use get_market_prices(): No pairs configured. "
+                "Use get_market_prices_for_pairs() with explicit pair list instead."
+            )
+        
+        long_pair = long_pairs[0]['pair']
+        short_pair = short_pairs[0]['pair']
+        prices = self.get_market_prices_for_pairs([long_pair, short_pair])
+        # Extract ask from long pair and bid from short pair
+        long_ask = prices[long_pair][0]
+        short_bid = prices[short_pair][1]
+        return (long_ask, short_bid)
+    
+    def get_market_prices_for_pairs(self, pairs: List[str]) -> Dict[str, Tuple[float, float]]:
+        """
+        Get current ask and bid prices for multiple pairs.
+        
+        Returns:
+            Dict mapping pair name to (ask_price, bid_price) tuple
+        """
         try:
-            import asyncio
             import httpx
             
-            # Use direct API calls for market data
+            prices = {}
             with httpx.Client(timeout=10) as client:
-                # Get long pair orderbook
-                long_resp = client.get(
-                    f"https://api.starknet.extended.exchange/api/v1/info/markets/{self.long_pair}/orderbook",
-                    headers={"User-Agent": "extended-bot/1.0"}
-                )
-                long_data = long_resp.json()["data"]
-                long_ask = float(long_data["ask"][0]["price"])
-                
-                # Get short pair orderbook
-                short_resp = client.get(
-                    f"https://api.starknet.extended.exchange/api/v1/info/markets/{self.short_pair}/orderbook",
-                    headers={"User-Agent": "extended-bot/1.0"}
-                )
-                short_data = short_resp.json()["data"]
-                short_bid = float(short_data["bid"][0]["price"])
-                
-                return long_ask, short_bid
+                for pair in pairs:
+                    try:
+                        resp = client.get(
+                            f"https://api.starknet.extended.exchange/api/v1/info/markets/{pair}/orderbook",
+                            headers={"User-Agent": "extended-bot/1.0"}
+                        )
+                        data = resp.json()["data"]
+                        ask = float(data["ask"][0]["price"])
+                        bid = float(data["bid"][0]["price"])
+                        prices[pair] = (ask, bid)
+                    except Exception as e:
+                        logger.error(f"Failed to get prices for {pair}: {e}")
+                        raise
+            
+            return prices
         except Exception as e:
             logger.error(f"Failed to get market prices: {e}")
             raise
@@ -151,84 +173,138 @@ class OrderManager:
             return {"asset_precision": 6, "min_order_size_change": "0.001", "min_price_change": "0.01"}
 
     def open_delta_neutral_positions(self, target_size: float) -> bool:
-        """Open long and short positions for delta neutral strategy."""
+        """Open long and short positions (deprecated wrapper).
+        
+        This method is kept for backward compatibility but is deprecated.
+        Use open_all_positions() directly with pairs from Config.get_all_long_pairs().
+        """
+        long_pairs = Config.get_all_long_pairs()
+        short_pairs = Config.get_all_short_pairs()
+        
+        if not long_pairs and not short_pairs:
+            raise ValueError(
+                "No pairs configured. Please set LONG_PAIR1/SHORT_PAIR1 with corresponding *_TARGET_SIZE values."
+            )
+        
+        return self.open_all_positions(long_pairs, short_pairs)
+    
+    def open_all_positions(self, long_pairs: List[Dict], short_pairs: List[Dict]) -> bool:
+        """
+        Open positions for all configured long and short pairs.
+        
+        Args:
+            long_pairs: List of {pair: str, target_size: float}
+            short_pairs: List of {pair: str, target_size: float}
+        
+        Returns:
+            True if all orders succeeded, False otherwise
+        """
         try:
             # Cancel existing orders
             self.cancel_all_orders()
             time.sleep(2)
             
-            # Get market precision requirements
-            long_precision = self.get_market_precision(self.long_pair)
-            short_precision = self.get_market_precision(self.short_pair)
+            all_pairs = [p['pair'] for p in long_pairs] + [p['pair'] for p in short_pairs]
+            if not all_pairs:
+                logger.warning("No pairs configured to open")
+                return False
             
-            logger.info(f"Long precision: {long_precision}")
-            logger.info(f"Short precision: {short_precision}")
+            # Get market prices for all pairs
+            prices = self.get_market_prices_for_pairs(all_pairs)
             
-            # Get market prices
-            long_ask, short_bid = self.get_market_prices()
+            # Get precision for all pairs
+            precisions = {}
+            for pair in all_pairs:
+                precisions[pair] = self.get_market_precision(pair)
             
-            # Calculate quantities and prices with proper precision
-            long_price_raw = long_ask * (1 + self.price_buffer)
-            short_price_raw = short_bid * (1 - self.price_buffer)
+            results = {}
             
-            # Quantize prices
-            long_price = self.quantize(long_price_raw, float(long_precision["min_price_change"]))
-            short_price = self.quantize(short_price_raw, float(short_precision["min_price_change"]))
+            # Open long positions
+            for pair_config in long_pairs:
+                pair = pair_config['pair']
+                target_size = pair_config['target_size']
+                
+                try:
+                    ask, _ = prices[pair]
+                    precision = precisions[pair]
+                    
+                    # Calculate price and quantity
+                    price_raw = ask * (1 + self.price_buffer)
+                    price = self.quantize(price_raw, float(precision["min_price_change"]))
+                    
+                    qty_raw = target_size / float(price)
+                    min_size = float(precision["min_order_size"])
+                    step_size = float(precision["min_order_size_change"])
+                    
+                    if qty_raw < min_size:
+                        qty_raw = min_size
+                        logger.warning(f"{pair} quantity too small, using minimum: {qty_raw}")
+                    
+                    qty = self.quantize(qty_raw, step_size)
+                    
+                    logger.info(f"Opening LONG: {pair} {qty} @ ${price} (target: ${target_size})")
+                    success = self.place_order(pair, "BUY", qty, price)
+                    results[pair] = success
+                    
+                    if not success:
+                        logger.error(f"❌ Failed to open LONG position for {pair}")
+                        # Retry once
+                        time.sleep(2)
+                        success = self.place_order(pair, "BUY", qty, price)
+                        results[pair] = success
+                        if success:
+                            logger.info(f"✅ Retry succeeded for {pair}")
+                
+                except Exception as e:
+                    logger.error(f"Failed to open LONG position for {pair}: {e}")
+                    results[pair] = False
             
-            # Calculate and quantize quantities
-            long_qty_raw = target_size / float(long_price)
-            short_qty_raw = target_size / float(short_price)
+            # Open short positions
+            for pair_config in short_pairs:
+                pair = pair_config['pair']
+                target_size = pair_config['target_size']
+                
+                try:
+                    _, bid = prices[pair]
+                    precision = precisions[pair]
+                    
+                    # Calculate price and quantity
+                    price_raw = bid * (1 - self.price_buffer)
+                    price = self.quantize(price_raw, float(precision["min_price_change"]))
+                    
+                    qty_raw = target_size / float(price)
+                    min_size = float(precision["min_order_size"])
+                    step_size = float(precision["min_order_size_change"])
+                    
+                    if qty_raw < min_size:
+                        qty_raw = min_size
+                        logger.warning(f"{pair} quantity too small, using minimum: {qty_raw}")
+                    
+                    qty = self.quantize(qty_raw, step_size)
+                    
+                    logger.info(f"Opening SHORT: {pair} {qty} @ ${price} (target: ${target_size})")
+                    success = self.place_order(pair, "SELL", qty, price)
+                    results[pair] = success
+                    
+                    if not success:
+                        logger.error(f"❌ Failed to open SHORT position for {pair}")
+                        # Retry once
+                        time.sleep(2)
+                        success = self.place_order(pair, "SELL", qty, price)
+                        results[pair] = success
+                        if success:
+                            logger.info(f"✅ Retry succeeded for {pair}")
+                
+                except Exception as e:
+                    logger.error(f"Failed to open SHORT position for {pair}: {e}")
+                    results[pair] = False
             
-            # Ensure minimum order size (use minOrderSize, not minOrderSizeChange)
-            long_min_size = float(long_precision["min_order_size"])
-            short_min_size = float(short_precision["min_order_size"])
-            long_step_size = float(long_precision["min_order_size_change"])
-            short_step_size = float(short_precision["min_order_size_change"])
+            all_succeeded = all(results.values())
+            if not all_succeeded:
+                failed = [pair for pair, success in results.items() if not success]
+                logger.error(f"❌ Failed to open positions for: {', '.join(failed)}")
             
-            # If calculated quantity is too small, use minimum size
-            if long_qty_raw < long_min_size:
-                long_qty_raw = long_min_size
-                logger.warning(f"BTC quantity too small, using minimum: {long_qty_raw}")
-            
-            if short_qty_raw < short_min_size:
-                short_qty_raw = short_min_size
-                logger.warning(f"ETH quantity too small, using minimum: {short_qty_raw}")
-            
-            long_qty = self.quantize(long_qty_raw, long_step_size)
-            short_qty = self.quantize(short_qty_raw, short_step_size)
-            
-            logger.info(f"Quantized quantities: BTC={long_qty}, ETH={short_qty}")
-            
-            logger.info(f"Opening: {self.long_pair} {long_qty} @ ${long_price}, {self.short_pair} {short_qty} @ ${short_price}")
-            
-            # Place both orders
-            logger.info(f"Placing BTC order: {self.long_pair} BUY {long_qty} @ {long_price}")
-            long_success = self.place_order(self.long_pair, "BUY", long_qty, long_price)
-            
-            logger.info(f"Placing ETH order: {self.short_pair} SELL {short_qty} @ {short_price}")
-            short_success = self.place_order(self.short_pair, "SELL", short_qty, short_price)
-            
-            logger.info(f"Order results: BTC={long_success}, ETH={short_success}")
-            
-            # If one order failed, try to retry it
-            if not long_success and short_success:
-                logger.warning("BTC order failed, retrying...")
-                time.sleep(2)
-                long_success = self.place_order(self.long_pair, "BUY", long_qty, long_price)
-                logger.info(f"BTC retry result: {long_success}")
-            
-            if not short_success and long_success:
-                logger.warning("ETH order failed, retrying...")
-                time.sleep(2)
-                short_success = self.place_order(self.short_pair, "SELL", short_qty, short_price)
-                logger.info(f"ETH retry result: {short_success}")
-            
-            if not long_success:
-                logger.error(f"❌ BTC order failed - only ETH short opened")
-            if not short_success:
-                logger.error(f"❌ ETH order failed - only BTC long opened")
-            
-            return long_success and short_success
+            return all_succeeded
             
         except Exception as e:
             logger.error(f"Failed to open positions: {e}")
@@ -244,40 +320,42 @@ class OrderManager:
             self.cancel_all_orders()
             time.sleep(2)
             
-            # Get market prices and precision for closing
-            long_ask, short_bid = self.get_market_prices()
-            long_precision = self.get_market_precision(self.long_pair)
-            short_precision = self.get_market_precision(self.short_pair)
+            # Get all pairs that need to be closed
+            pairs_to_close = list(positions.keys())
+            if not pairs_to_close:
+                return True
             
-            # Close long position
-            if self.long_pair in positions and positions[self.long_pair]["size"] > 0:
-                long_size = abs(positions[self.long_pair]["size"])
-                long_price_raw = long_ask * (1 - self.price_buffer)
-                long_price = self.quantize(long_price_raw, float(long_precision["min_price_change"]))
-                long_qty = self.quantize(long_size, float(long_precision["min_order_size_change"]))
-                
-                logger.info(f"Closing BTC: SELL {long_qty} @ {long_price}")
-                self.place_order(self.long_pair, "SELL", long_qty, long_price)
+            # Get market prices for all pairs
+            prices = self.get_market_prices_for_pairs(pairs_to_close)
             
-            # Close short position
-            if self.short_pair in positions and positions[self.short_pair]["size"] != 0:
-                short_size = abs(positions[self.short_pair]["size"])
-                short_side = positions[self.short_pair]["side"]
+            # Close each position
+            for pair, position_data in positions.items():
+                try:
+                    size = abs(position_data["size"])
+                    if size <= 0.00001:
+                        continue
+                    
+                    side = position_data["side"]
+                    precision = self.get_market_precision(pair)
+                    ask, bid = prices[pair]
+                    
+                    if side.upper() == "LONG":
+                        # Long position - sell to close
+                        price_raw = bid * (1 - self.price_buffer)
+                        price = self.quantize(price_raw, float(precision["min_price_change"]))
+                        qty = self.quantize(size, float(precision["min_order_size_change"]))
+                        logger.info(f"Closing LONG {pair}: SELL {qty} @ {price}")
+                        self.place_order(pair, "SELL", qty, price)
+                    else:
+                        # Short position - buy to close
+                        price_raw = ask * (1 + self.price_buffer)
+                        price = self.quantize(price_raw, float(precision["min_price_change"]))
+                        qty = self.quantize(size, float(precision["min_order_size_change"]))
+                        logger.info(f"Closing SHORT {pair}: BUY {qty} @ {price}")
+                        self.place_order(pair, "BUY", qty, price)
                 
-                if short_side == "LONG":
-                    # Long position - sell to close
-                    short_price_raw = short_bid * (1 - self.price_buffer)
-                    short_price = self.quantize(short_price_raw, float(short_precision["min_price_change"]))
-                    short_qty = self.quantize(short_size, float(short_precision["min_order_size_change"]))
-                    logger.info(f"Closing ETH: SELL {short_qty} @ {short_price}")
-                    self.place_order(self.short_pair, "SELL", short_qty, short_price)
-                else:
-                    # Short position - buy to close
-                    short_price_raw = short_bid * (1 + self.price_buffer)
-                    short_price = self.quantize(short_price_raw, float(short_precision["min_price_change"]))
-                    short_qty = self.quantize(short_size, float(short_precision["min_order_size_change"]))
-                    logger.info(f"Closing ETH: BUY {short_qty} @ {short_price}")
-                    self.place_order(self.short_pair, "BUY", short_qty, short_price)
+                except Exception as e:
+                    logger.error(f"Failed to close position for {pair}: {e}")
             
             return True
             

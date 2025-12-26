@@ -6,13 +6,13 @@
 
 ## 📋 What This Bot Does (In Simple Terms)
 
-Imagine you have a robot that trades cryptocurrency for you automatically, every single day. It:
-- Buys Bitcoin (BTC) when the market opens
-- Sells Ethereum (ETH) at the same time
-- Closes everything when the market closes
+This bot automatically trades cryptocurrency baskets for you, every single day. It:
+- Opens long positions on your configured assets when the market opens
+- Opens short positions on your configured assets at the same time
+- Closes all positions when the market closes
 - Does this automatically, 24/7, without you doing anything
 
-**Think of it like a vending machine that trades crypto instead of selling snacks!**
+
 
 ---
 
@@ -30,7 +30,7 @@ Imagine you have a robot that trades cryptocurrency for you automatically, every
 **First, you need an account on Extended Exchange to trade.**
 
 1. **Go to Extended Exchange** using this link: **https://app.extended.exchange/join/TOSHI**
-   - This link helps support the bot developer & entiles you to reach out w/ questions! 💙
+   - This link helps support the bot developer & entitles you to reach out w/ questions! 💙
 
 2. **Create your account**
    - Click "Sign Up" or "Create Account"
@@ -76,9 +76,8 @@ Imagine you have a robot that trades cryptocurrency for you automatically, every
 
 ### 3A. Create a DigitalOcean Account
 
-1. **Go to DigitalOcean** using this link: **https://m.do.co/c/26409a45c0ac**
-   - This referral link helps support the bot developer! 💙
-   - You'll also get $200 in credit for your first 60 days!
+1. **Go to DigitalOcean** using this link will give you $200 in credit for your first 60 days: **https://m.do.co/c/26409a45c0ac**
+-it's a ref link
 2. **Click "Sign Up"** (top right corner)
 3. **Create your account** with your email
 4. **Add a payment method** (credit card)
@@ -187,9 +186,9 @@ cd extendedbot
 
 ---
 
-## ⚙️ Step 6: Configure the Bot (Add Your API Keys)
+## ⚙️ Step 6: Configure the Bot (Add Your API Keys & Trading Pairs)
 
-**This is where you tell the bot your API keys so it can trade for you.**
+**This is where you tell the bot your API keys and which assets to trade.**
 
 **🖥️ All commands in this step are run ON YOUR SERVER (in the SSH terminal window)**
 
@@ -203,20 +202,46 @@ cd extendedbot
    nano .env
    ```
 
-3. **You'll see a file with lots of lines. Find these 4 lines and fill them in:**
+3. **You'll see a file with lots of lines. Fill in these required settings:**
+
+   **API Credentials (from Step 2):**
    ```
    EXT_API_KEY=your_api_key_here
    EXT_L2_KEY=your_starknet_private_key_here
    EXT_L2_VAULT=your_vault_id_here
-   L2_PUBLIC_KEY=your_starknet_public_key_here
+   EXT_L2_PUBLIC_KEY=your_starknet_public_key_here
+   ```
+
+   **Trading Configuration (basket-based):**
+   ```
+   LONG_PAIR1=BTC-USD
+   LONG_PAIR1_TARGET_SIZE=1500.0
+   
+   SHORT_PAIR1=ETH-USD
+   SHORT_PAIR1_TARGET_SIZE=1500.0
+   
+   LONG_LEVERAGE=10
+   SHORT_LEVERAGE=10
+   
+   OPEN_TIME=21:30:30
+   CLOSE_TIME=18:30:30
+   TIMEZONE=UTC
+   ```
+
+   **To add more pairs, use numbered format:**
+   ```
+   LONG_PAIR2=SOL-USD
+   LONG_PAIR2_TARGET_SIZE=1000.0
+   SHORT_PAIR2=AVAX-USD
+   SHORT_PAIR2_TARGET_SIZE=800.0
    ```
 
 4. **How to edit in nano:**
    - Use your arrow keys to move around
    - Delete the text after the `=` sign
-   - Type (or paste) your actual API key
+   - Type (or paste) your actual values
    - **Important:** No spaces! It should look like: `EXT_API_KEY=abc123xyz`
-   - Do this for all 4 keys
+   - Each pair must have a corresponding `*_TARGET_SIZE` (e.g., `LONG_PAIR1` needs `LONG_PAIR1_TARGET_SIZE`)
 
 5. **Save and exit:**
    - Press `Ctrl + X` (hold Control, press X)
@@ -313,24 +338,18 @@ docker compose ps
 
 ## ❓ Troubleshooting
 
-### "I can't connect to my server"
-- Make sure you're using the correct IP address
-- Make sure your server is running (check DigitalOcean dashboard)
-- Try waiting a minute and trying again
-
-### "The bot says 'Configuration validation failed'"
-- Check that all 4 API keys are in your `.env` file
-- Make sure there are no spaces around the `=` sign
-- Make sure you didn't add quotes around the values
-
-### "I don't see any trades happening"
-- **🖥️ On your server (in SSH terminal):** Check the logs: `docker compose logs -f`
-- Make sure you have money in your Extended Exchange account
-- Make sure your OPEN_TIME and CLOSE_TIME are set correctly
-
 ### "I'm stuck on a step"
 - Ask ChatGPT or Claude for help with that specific step
-- Or DM Toshi (if you know how to reach them)
+
+### "Configuration validation failed"
+- Check that all 4 API keys are in your `.env` file
+- Make sure there are no spaces around the `=` sign
+- Verify each pair has a corresponding `*_TARGET_SIZE` (e.g., `LONG_PAIR1` needs `LONG_PAIR1_TARGET_SIZE`)
+- Ensure at least one pair is configured (LONG_PAIR1 or SHORT_PAIR1)
+
+### "No pairs configured"
+- Make sure you have at least `LONG_PAIR1` or `SHORT_PAIR1` set
+- Each pair must have a corresponding target size (e.g., `LONG_PAIR1_TARGET_SIZE=1500.0`)
 
 ---
 
@@ -346,14 +365,28 @@ docker compose ps
 
 ## 🎓 What Each Setting Does (Optional Reading)
 
-In your `.env` file, you might see these settings:
+In your `.env` file, you'll see these settings:
 
-- **TARGET_SIZE:** How much money (in USD) to use per trade
-- **OPEN_TIME:** What time to open positions (format: `HH:MM:SS` like `09:00:00`)
-- **CLOSE_TIME:** What time to close positions (format: `HH:MM:SS` like `17:00:00`)
-- **TIMEZONE:** What timezone to use (usually `UTC`)
-- **LONG_LEVERAGE:** How much leverage for Bitcoin (usually `10`)
-- **SHORT_LEVERAGE:** How much leverage for Ethereum (usually `10`)
+**API Credentials:**
+- **EXT_API_KEY:** Your Extended Exchange API key
+- **EXT_L2_KEY:** Your Starknet private key
+- **EXT_L2_VAULT:** Your vault ID
+- **EXT_L2_PUBLIC_KEY:** Your Starknet public key
+
+**Trading Pairs (Basket-based):**
+- **LONG_PAIR1, LONG_PAIR2, etc.:** Asset symbols to go long (e.g., `BTC-USD`, `SOL-USD`)
+- **LONG_PAIR1_TARGET_SIZE, LONG_PAIR2_TARGET_SIZE, etc.:** Target notional size in USD for each long position
+- **SHORT_PAIR1, SHORT_PAIR2, etc.:** Asset symbols to go short (e.g., `ETH-USD`, `AVAX-USD`)
+- **SHORT_PAIR1_TARGET_SIZE, SHORT_PAIR2_TARGET_SIZE, etc.:** Target notional size in USD for each short position
+
+**Leverage:**
+- **LONG_LEVERAGE:** Leverage multiplier for all long positions (e.g., `10` = 10x)
+- **SHORT_LEVERAGE:** Leverage multiplier for all short positions (e.g., `10` = 10x)
+
+**Schedule:**
+- **OPEN_TIME:** When to open positions (format: `HH:MM:SS` like `21:30:30`)
+- **CLOSE_TIME:** When to close positions (format: `HH:MM:SS` like `18:30:30`)
+- **TIMEZONE:** Timezone for schedule (usually `UTC`)
 
 **Don't change these unless you know what you're doing!**
 
@@ -362,10 +395,9 @@ In your `.env` file, you might see these settings:
 ## ⚠️ Final Reminders
 
 1. **Keep your API keys secret!** Never share them with anyone.
-2. **Only trade with money you can afford to lose.**
-3. **Check on your bot occasionally** to make sure it's running.
-4. **The bot runs automatically** - you don't need to do anything after setup.
-5. **If something breaks**, **🖥️ on your server (in SSH terminal)** check the logs first: `docker compose logs -f`
+2. **Check on your bot occasionally** to make sure it's running.
+3. **The bot runs automatically** - you don't need to do anything after setup.
+4. **If something breaks**, **🖥️ on your server (in SSH terminal)** check the logs first: `docker compose logs -f`
 
 ---
 
@@ -381,10 +413,7 @@ You've set up an automated trading bot! It's now running 24/7, trading for you a
 
 - **Technical issues:** **🖥️ On your server (in SSH terminal)** check the logs with `docker compose logs -f`
 - **Setup questions:** Ask ChatGPT or Claude for help with specific steps
-- **Other help:** DM Toshi (if you know how to reach them)
 
 ---
 
 **Happy Trading! 🚀**
-
-*Last updated: [Current Date]*

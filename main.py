@@ -31,13 +31,28 @@ def main():
         # Create and start the trading bot
         bot = TradingBot()
         logger.info("Starting Extended Exchange trading bot...")
-        logger.info(f"Strategy: Long {Config.LONG_PAIR} / Short {Config.SHORT_PAIR}")
+        
+        # Display configured pairs
+        long_pairs = Config.get_all_long_pairs()
+        short_pairs = Config.get_all_short_pairs()
+        
+        if long_pairs:
+            logger.info("Long pairs:")
+            for pair_config in long_pairs:
+                logger.info(f"  {pair_config['pair']}: ${pair_config['target_size']:.2f} (leverage: {Config.LONG_LEVERAGE}x)")
+        else:
+            logger.warning("No long pairs configured. Set LONG_PAIR1, LONG_PAIR2, etc. with corresponding *_TARGET_SIZE values.")
+        
+        if short_pairs:
+            logger.info("Short pairs:")
+            for pair_config in short_pairs:
+                logger.info(f"  {pair_config['pair']}: ${pair_config['target_size']:.2f} (leverage: {Config.SHORT_LEVERAGE}x)")
+        else:
+            logger.warning("No short pairs configured. Set SHORT_PAIR1, SHORT_PAIR2, etc. with corresponding *_TARGET_SIZE values.")
+        
         logger.info(f"Timezone: {Config.TIMEZONE}")
         logger.info(f"OPEN_TIME: {Config.OPEN_TIME}")
         logger.info(f"CLOSE_TIME: {Config.CLOSE_TIME}")
-        logger.info(f"TARGET_SIZE: ${Config.TARGET_SIZE}")
-        logger.info(f"LONG_LEVERAGE: {Config.LONG_LEVERAGE}x")
-        logger.info(f"SHORT_LEVERAGE: {Config.SHORT_LEVERAGE}x")
         
         bot.start()
         
