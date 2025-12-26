@@ -92,12 +92,51 @@ class TradingBot:
                 "No pairs configured. Please set LONG_PAIR1/SHORT_PAIR1 with corresponding *_TARGET_SIZE values."
             )
         
-        # Validate position sizes
-        is_valid, validation_details = self.position_manager.validate_position_sizes(
+        # Calculate position details for logging (not for validation)
+        _, validation_details = self.position_manager.validate_position_sizes(
             positions, all_expected_pairs
         )
         
-        if is_valid:
+        # Calculate total long and short notional values
+        total_long_notional = 0.0
+        total_short_notional = 0.0
+        total_long_target = 0.0
+        total_short_target = 0.0
+        
+        for pair_config in long_pairs:
+            pair = pair_config['pair']
+            total_long_target += pair_config['target_size']
+            if pair in validation_details:
+                details = validation_details[pair]
+                if 'actual_notional' in details:
+                    total_long_notional += details['actual_notional']
+        
+        for pair_config in short_pairs:
+            pair = pair_config['pair']
+            total_short_target += pair_config['target_size']
+            if pair in validation_details:
+                details = validation_details[pair]
+                if 'actual_notional' in details:
+                    total_short_notional += details['actual_notional']
+        
+        # Log individual position differences
+        logger.info("Position analysis:")
+        for pair, details in validation_details.items():
+            if 'actual_notional' in details:
+                diff_pct = details.get('diff_pct', 0) * 100
+                logger.info(f"  {pair}: ${details['actual_notional']:.2f} (target: ${details['target_notional']:.2f}, diff: {diff_pct:.2f}%)")
+            else:
+                logger.info(f"  {pair}: {details.get('reason', 'Position not found')}")
+        
+        # Log total long vs short comparison
+        total_notional = total_long_notional + total_short_notional
+        if total_notional > 0:
+            long_pct = (total_long_notional / total_notional) * 100
+            short_pct = (total_short_notional / total_notional) * 100
+            logger.info(f"Total notional: Long ${total_long_notional:.2f} ({long_pct:.2f}%) / Short ${total_short_notional:.2f} ({short_pct:.2f}%)")
+        
+        # Set state based on whether we have any positions (not validation)
+        if positions:
             self.bot_state = "OPEN"
             # Mark trading day, but use a conservative approach for stale positions
             # If close_time < open_time, conservatively assume positions were opened yesterday
@@ -113,17 +152,10 @@ class TradingBot:
             else:
                 # Same-day scenario: assume positions were opened today
                 self.scheduler.mark_trading_day(current_date)
-            logger.info("All positions validated - state: OPEN")
-            for pair, details in validation_details.items():
-                logger.info(f"  {pair}: ${details['actual_notional']:.2f} (target: ${details['target_notional']:.2f}, diff: {details['diff_pct']*100:.2f}%)")
-            logger.info(f"Marked trading day as: {self.scheduler.last_trading_day} (conservative for stale positions)")
+            logger.info(f"State: OPEN (positions found) - Marked trading day as: {self.scheduler.last_trading_day}")
         else:
             self.bot_state = "WAITING"
-            logger.info("Positions not validated - state: WAITING")
-            for pair, details in validation_details.items():
-                if not details.get('valid', False):
-                    reason = details.get('reason', f"diff: {details.get('diff_pct', 0)*100:.2f}%")
-                    logger.info(f"  {pair}: {reason}")
+            logger.info("State: WAITING (no positions found)")
     
     def start(self):
         """Start the trading bot main loop."""
@@ -234,45 +266,63 @@ class TradingBot:
                 "No pairs configured. Please set LONG_PAIR1/SHORT_PAIR1 with corresponding *_TARGET_SIZE values."
             )
         
-        # Validate position sizes
-        is_valid, validation_details = self.position_manager.validate_position_sizes(
+        # Calculate position details for logging (not for validation)
+        _, validation_details = self.position_manager.validate_position_sizes(
             positions, all_expected_pairs
         )
         
-        if is_valid:
+        # Calculate total long and short notional values
+        total_long_notional = 0.0
+        total_short_notional = 0.0
+        
+        for pair_config in long_pairs:
+            pair = pair_config['pair']
+            if pair in validation_details:
+                details = validation_details[pair]
+                if 'actual_notional' in details:
+                    total_long_notional += details['actual_notional']
+        
+        for pair_config in short_pairs:
+            pair = pair_config['pair']
+            if pair in validation_details:
+                details = validation_details[pair]
+                if 'actual_notional' in details:
+                    total_short_notional += details['actual_notional']
+        
+        # Log individual position differences
+        logger.info("Position analysis after opening:")
+        for pair, details in validation_details.items():
+            if 'actual_notional' in details:
+                diff_pct = details.get('diff_pct', 0) * 100
+                logger.info(f"  {pair}: ${details['actual_notional']:.2f} (target: ${details['target_notional']:.2f}, diff: {diff_pct:.2f}%)")
+            else:
+                logger.info(f"  {pair}: {details.get('reason', 'Position not found')}")
+        
+        # Log total long vs short comparison
+        total_notional = total_long_notional + total_short_notional
+        if total_notional > 0:
+            long_pct = (total_long_notional / total_notional) * 100
+            short_pct = (total_short_notional / total_notional) * 100
+            logger.info(f"Total notional: Long ${total_long_notional:.2f} ({long_pct:.2f}%) / Short ${total_short_notional:.2f} ({short_pct:.2f}%)")
+        
+        # Set state to OPEN if we have positions (regardless of validation)
+        if positions:
             self.bot_state = "OPEN"
             self.scheduler.mark_trading_day(datetime.now(Config.TIMEZONE).date())
-            logger.info("✅ All positions verified within tolerance")
-            for pair, details in validation_details.items():
-                logger.info(f"  {pair}: ${details['actual_notional']:.2f} (target: ${details['target_notional']:.2f}, diff: {details['diff_pct']*100:.2f}%)")
+            logger.info("✅ Positions opened - state: OPEN")
         else:
-            logger.error(f"❌ Failed to achieve target position sizes")
-            for pair, details in validation_details.items():
-                if not details.get('valid', False):
-                    reason = details.get('reason', f"diff: {details.get('diff_pct', 0)*100:.2f}%")
-                    logger.error(f"  {pair}: {reason}")
-            
+            logger.warning("⚠️  No positions found after opening orders")
             # Retry once after additional wait
-            logger.info("Retrying position verification in 5 seconds...")
+            logger.info("Retrying position check in 5 seconds...")
             time.sleep(5)
             positions = self.position_manager.get_current_positions()
             
-            is_valid, validation_details = self.position_manager.validate_position_sizes(
-                positions, all_expected_pairs
-            )
-            
-            if is_valid:
+            if positions:
                 self.bot_state = "OPEN"
                 self.scheduler.mark_trading_day(datetime.now(Config.TIMEZONE).date())
-                logger.info("✅ All positions verified on retry")
-                for pair, details in validation_details.items():
-                    logger.info(f"  {pair}: ${details['actual_notional']:.2f} (target: ${details['target_notional']:.2f}, diff: {details['diff_pct']*100:.2f}%)")
+                logger.info("✅ Positions found on retry - state: OPEN")
             else:
-                logger.error(f"❌ Still failed position validation after retry")
-                for pair, details in validation_details.items():
-                    if not details.get('valid', False):
-                        reason = details.get('reason', f"diff: {details.get('diff_pct', 0)*100:.2f}%")
-                        logger.error(f"  {pair}: {reason}")
+                logger.error("❌ Still no positions found after retry")
                 self.bot_state = "WAITING"
     
     def _close_positions(self):
