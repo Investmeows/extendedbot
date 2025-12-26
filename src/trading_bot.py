@@ -128,12 +128,17 @@ class TradingBot:
             else:
                 logger.info(f"  {pair}: {details.get('reason', 'Position not found')}")
         
-        # Log total long vs short comparison
+        # Log total long vs short comparison (based on actual notional values)
         total_notional = total_long_notional + total_short_notional
+        total_target = total_long_target + total_short_target
         if total_notional > 0:
             long_pct = (total_long_notional / total_notional) * 100
             short_pct = (total_short_notional / total_notional) * 100
             logger.info(f"Total notional: Long ${total_long_notional:.2f} ({long_pct:.2f}%) / Short ${total_short_notional:.2f} ({short_pct:.2f}%)")
+        if total_target > 0:
+            long_target_pct = (total_long_target / total_target) * 100
+            short_target_pct = (total_short_target / total_target) * 100
+            logger.info(f"Target allocation: Long ${total_long_target:.2f} ({long_target_pct:.2f}%) / Short ${total_short_target:.2f} ({short_target_pct:.2f}%)")
         
         # Set state based on whether we have any positions (not validation)
         if positions:
@@ -274,9 +279,12 @@ class TradingBot:
         # Calculate total long and short notional values
         total_long_notional = 0.0
         total_short_notional = 0.0
+        total_long_target = 0.0
+        total_short_target = 0.0
         
         for pair_config in long_pairs:
             pair = pair_config['pair']
+            total_long_target += pair_config['target_size']
             if pair in validation_details:
                 details = validation_details[pair]
                 if 'actual_notional' in details:
@@ -284,6 +292,7 @@ class TradingBot:
         
         for pair_config in short_pairs:
             pair = pair_config['pair']
+            total_short_target += pair_config['target_size']
             if pair in validation_details:
                 details = validation_details[pair]
                 if 'actual_notional' in details:
@@ -298,12 +307,17 @@ class TradingBot:
             else:
                 logger.info(f"  {pair}: {details.get('reason', 'Position not found')}")
         
-        # Log total long vs short comparison
+        # Log total long vs short comparison (based on actual notional values)
         total_notional = total_long_notional + total_short_notional
+        total_target = total_long_target + total_short_target
         if total_notional > 0:
             long_pct = (total_long_notional / total_notional) * 100
             short_pct = (total_short_notional / total_notional) * 100
             logger.info(f"Total notional: Long ${total_long_notional:.2f} ({long_pct:.2f}%) / Short ${total_short_notional:.2f} ({short_pct:.2f}%)")
+        if total_target > 0:
+            long_target_pct = (total_long_target / total_target) * 100
+            short_target_pct = (total_short_target / total_target) * 100
+            logger.info(f"Target allocation: Long ${total_long_target:.2f} ({long_target_pct:.2f}%) / Short ${total_short_target:.2f} ({short_target_pct:.2f}%)")
         
         # Set state to OPEN if we have positions (regardless of validation)
         if positions:
