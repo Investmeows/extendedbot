@@ -1,5 +1,6 @@
 """
-Clean, modular trading bot for delta neutral BTC/ETH strategy.
+Clean, modular trading bot for basket-based long/short trading strategy.
+Supports multiple long and short pairs with individual target sizes.
 """
 import time
 import logging

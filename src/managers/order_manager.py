@@ -172,22 +172,6 @@ class OrderManager:
             logger.error(f"Failed to get market precision: {e}")
             return {"asset_precision": 6, "min_order_size_change": "0.001", "min_price_change": "0.01"}
 
-    def open_delta_neutral_positions(self, target_size: float) -> bool:
-        """Open long and short positions (deprecated wrapper).
-        
-        This method is kept for backward compatibility but is deprecated.
-        Use open_all_positions() directly with pairs from Config.get_all_long_pairs().
-        """
-        long_pairs = Config.get_all_long_pairs()
-        short_pairs = Config.get_all_short_pairs()
-        
-        if not long_pairs and not short_pairs:
-            raise ValueError(
-                "No pairs configured. Please set LONG_PAIR1/SHORT_PAIR1 with corresponding *_TARGET_SIZE values."
-            )
-        
-        return self.open_all_positions(long_pairs, short_pairs)
-    
     def open_all_positions(self, long_pairs: List[Dict], short_pairs: List[Dict]) -> bool:
         """
         Open positions for all configured long and short pairs.
