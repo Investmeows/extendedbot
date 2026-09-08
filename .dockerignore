@@ -65,3 +65,9 @@ README.md
 # Temporary files
 tmp/
 temp/
+
+# Keep runtime environment files out of every Docker build context.
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
